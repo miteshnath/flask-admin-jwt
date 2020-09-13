@@ -1,65 +1,25 @@
-import os
-from datetime import timedelta
+from flask import Blueprint
+from flask_restx import Api
+from .main.controller.auth_controller import api as auth_ns
+from .main.controller.user_controller import api as user_ns
 
-import redis
-from flask import Flask, flash, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_admin import Admin
-from flask_admin.menu import MenuLink
-from flask_login import LoginManager
-from flask_jwt_extended import JWTManager
+blueprint = Blueprint('api', __name__)
 
-from config import config
+authorizations = {
+    'basic': {
+        'type': 'basic',
+        'in': 'headers',
+        'name': 'Authorization'
+    }
+}
 
-db = SQLAlchemy()
-migrate = Migrate()
-login_manager = LoginManager()
+api = Api(blueprint,
+          title='Simple Flask JWT Auth With Admin',
+          version='1.0',
+          authorizations=authorizations,
+          security='basic',
+          description='flask JWT based auth system with admin as a web service'
+          )
 
-ACCESS_EXPIRES = timedelta(seconds=300)
-REFRESH_EXPIRES = timedelta(minutes=30)
-
-jti_store = redis.StrictRedis(host=os.environ.get('REDIS_HOST'),
-                              port=os.environ.get('REDIS_PORT'),
-                              db=os.environ.get('REDIS_DB'),
-                              password=os.environ.get('REDIS_PWD'),
-                              decode_responses=True)
-
-
-def create_app(config_name=None):
-    if config_name is None:
-        config_name = os.environ.get('CONFIG', 'development')
-
-    app = Flask(__name__)
-    app.config.from_object(config[config_name])
-
-    db.init_app(app)
-    from .models import User
-    migrate.init_app(app, db)
-
-    from app.api.v1 import auth_bp
-    app.register_blueprint(auth_bp)
-
-    login_manager.init_app(app)
-    _jwt = JWTManager(app)
-
-    @login_manager.user_loader
-    def load_user(user_id):
-        print("user_id", user_id)
-        """Check if user is logged-in upon page load."""
-        if user_id is not None:
-            return User.query.get(user_id)
-        return None
-
-    @login_manager.unauthorized_handler
-    def unauthorized():
-        """Redirect unauthorized users to Login page."""
-        flash('You must be logged in to view that page.')
-        return redirect(url_for('auth_bp.login'))
-
-    from app.api.v1.admin_view import UserAdminModelView, MyAdminIndexView
-    app.config['FLASK_ADMIN_SWATCH'] = os.environ.get('FLASK_ADMIN_SWATCH')
-    admin = Admin(app, name='flask-jwt', index_view=MyAdminIndexView(), template_mode='bootstrap3')
-    admin.add_view(UserAdminModelView(User, db.session, endpoint='user'))
-    admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
-    return app
+api.add_namespace(auth_ns, path='/auth')
+api.add_namespace(user_ns, path='/user')

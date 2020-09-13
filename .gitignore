@@ -10,7 +10,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# dist/
 downloads/
 eggs/
 .eggs/
@@ -108,6 +108,7 @@ venv.bak/
 
 env_vars/dev.sh
 env_vars/stage.sh
+env_vars/prod.sh
 credentials.json
 svc/credentials.json
 token.pickle
